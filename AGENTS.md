@@ -94,10 +94,10 @@ If any panel looks like a textbook diagram rather than data, it fails this test.
 
 ### Test 4: Mock reviewer test
 Write two sentences as a hostile but fair Nature Communications reviewer.
-Acceptable reviewer comment: "The model produces convincing results consistent with
-the literature but the authors should clarify the basis for the P_open value."
+Acceptable reviewer comment: "The model produces results consistent with
+FUS-BBBO literature but the authors should clarify the basis for the P_open value."
 Failing reviewer comment: "The parameters appear chosen to support the
-conclusion; no independent validation is shown. The figures are not clear."
+conclusion; no independent validation is shown."
 If your mock reviewer writes the failing version, revise before accepting.
 
 ### Test 5: Story coherence test
@@ -121,3 +121,48 @@ different scales, one of them is redundant.
 ## Consistency rule
 
 Notebook and figure always generated from the same parameter set in the same run.
+
+---
+
+## Data fetching — MANDATORY first step
+
+Before generating any figure, run:
+  python fetch_data.py
+
+This script fetches all source data with multiple fallback strategies:
+
+| Source | Primary | Fallback 1 | Fallback 2 |
+|---|---|---|---|
+| Vasculature | MiniVess Figshare (real two-photon images) | VesselGraph GitHub | Synthetic Murray's law tree |
+| Atlas | Allen CCF v3 NIfTI (Scalable Brain Atlas) | allensdk download | Hardcoded polygon coordinates |
+| Enhancers | Allen ISH API (Prox1, Wfs1, Calb2) | API query by gene name | Synthetic bilateral mask |
+
+**If fetch_data.py fails on any source:**
+1. Check the error message — it will say exactly which URL failed and why
+2. Try again (transient network errors are common in CI)
+3. If still failing after 3 runs, the synthetic fallback is used automatically —
+   the figure will still generate but note in the critic assessment which
+   data sources are synthetic vs real
+
+**Key files produced by fetch_data.py:**
+- `data/vasculature/minivess_slice.tif` — real two-photon vascular image (Panel A)
+- `data/vasculature/vessel_graph.json` — graph-format vascular network
+- `data/atlas/P56_Annotation_downsample2.nii.gz` — Allen CCF v3 annotation volume
+- `data/atlas/hippocampus_polygons_Bregma-2mm.json` — coronal polygon coordinates
+- `data/atlas/structure_ids.json` — Allen ontology IDs for CA1/CA3/DG/CC
+- `data/enhancers/Prox1_ISH_*.jpg` — DG granule cell expression (bilateral DG)
+- `data/enhancers/Wfs1_ISH_*.jpg` — CA1 pyramidal expression
+- `data/enhancers/allen_ish_manifest.json` — API endpoints for runtime fallback
+- `data/manifest.json` — record of what was fetched vs synthetic
+
+**Using real data in the figure:**
+- Panel A: Load `minivess_slice.tif` for the vascular geometry.
+  If NIfTI is available, extract a 2D z-projection from the hippocampal region.
+  Fall back to `vessel_graph.json` or synthetic tree if neither present.
+- Panel B: Load `P56_Annotation_downsample2.nii.gz`, extract slice at z≈332
+  (Bregma -2.0mm). Use structure IDs from `structure_ids.json` to colour
+  regions. Fall back to `hippocampus_polygons_Bregma-2mm.json` if NIfTI absent.
+- Panel A sub-panel ii / Panel D expression mask: Load `Prox1_ISH_*.jpg`,
+  threshold to extract high-expression regions, use as the CBG expression mask.
+  This gives a genuinely bilateral, anatomically grounded expression pattern
+  rather than a synthetic Gaussian.
