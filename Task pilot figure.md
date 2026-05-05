@@ -5,190 +5,251 @@ Generate two outputs:
 2. `CBG_model_explainer.ipynb`
 
 Use parameters and conventions from AGENTS.md.
-Iterate until all quality checks in AGENTS.md and the task-specific checks
-below all pass. Print PASS/FAIL for each check before finishing.
+Run ALL critic layer tests (Tests 1–5 in AGENTS.md) after generating.
+State pass/fail explicitly. Revise and regenerate if any fail.
+
+Target aesthetic: Nature Communications. Every visual element must be either
+derived from the model with cited parameters, or explicitly labelled as assumed.
 
 ---
 
-## Outputs
+## Figure layout
 
-### Figure: 3 panels side by side, 18 cm wide x 7 cm tall
+Total: 170 mm wide × 150 mm tall.
 
----
+**Top row** (55 mm tall): Panels A, B, C side by side.
+  A: 35% width. B: 35%. C: 30%.
 
-#### Panel A — Dose Amplification
+**Bottom row** (85 mm tall): Panel D — full width.
+  Internally: thin time-course strip (15 mm) above a 4×5 spatial grid (65 mm).
 
-**What it shows:** CBG amplifies local drug concentration at the seizure focus
-without increasing systemic dose.
-
-**Geometry:** 1D brain cross-section, x = 0–8 mm.
-BBB open zone: gaussian profile centred at x = 4 mm, half-width = sigma.
-
-**PDE:**
-  dC/dt = D_tissue * d²C/dx² + P(x) * (C_blood - C_tissue) - k_e * C
-
-  where P(x) = P_open inside opening zone, P_intact elsewhere.
-  Use parabolic PDE framework (Charemis et al. 2026).
-  Run to steady state (t = 60 min). Use C_blood = 1.0 (normalised).
-
-**Plot two curves:**
-- Blue: systemic only (P_intact everywhere)
-- Red: CBG + systemic (P_open in focal zone)
-
-**Add horizontal dashed lines:**
-- Therapeutic threshold: 3x the systemic-only peak
-- Side-effect threshold: 8x the systemic-only peak
+Panel labels A B C D bold 8pt top-left of each panel.
 
 ---
 
-#### Panel B — Safe Operating Window
+## Panel A: Vascular-constrained drug delivery
 
-**What it shows:** There is a designable threshold separating seizure-level
-from physiological c-Fos activation, determined by enhancer expression density.
+**Claim:** "Drug entry without BBB opening is spatially uniform and vessel-proximal;
+CBG creates discrete high-concentration hotspots at vessels within the
+expressing neuronal population."
 
-**2D heatmap. Axes (both log scale):**
-- X: enhancer expression density — 10 to 10,000 neurons/mm³
-- Y: c-Fos fold-change above baseline — 1x to 100x
+Three sub-panels stacked vertically (labels i ii iii). 2×2 mm tissue patch.
+Shared viridis colourbar. 200 µm scale bar on sub-panel i.
 
-**Compute for each point:**
-  C_opener = density * fold_change * alpha
-  Gate opens if C_opener > threshold_open
+**Vascular tree:** Fractal branching, Murray's law, target density 400–600
+vessels/mm² (Tsai et al. 2009 PNAS), ±10° tortuosity per 50 µm segment.
 
-Set alpha and threshold_open so that:
-- (1000/mm³, 30x) → RED (opens)
-- (1000/mm³, 3x)  → BLUE (closed)
-- (500/mm³, 2x)   → BLUE (closed)
+**2D PDE (finite difference dx=10 µm, steady state):**
+  dC/dt = D * ∇²C - k_e * C + P(x,y) * (C_blood - C) * delta_vessel(x,y)
+  delta_vessel: Gaussian kernel sigma=10 µm on vessel walls.
 
-**Colour:** RED = opens, BLUE = closed.
-White contour at threshold boundary.
-
-**Mark with symbols:**
-- ★  Seizure: (1000/mm³, 30x) — must be RED
-- ●  Learning: (1000/mm³, 3x) — must be BLUE
-- ◆  Normal waking: (500/mm³, 2x) — must be BLUE
+Sub-panel i: P = P_intact everywhere. Steady-state heatmap.
+Sub-panel ii: BBB-opener expression mask only (circular patch r=0.7 mm,
+  Gaussian edge). Colour = expression density. Vessel tree as white lines.
+Sub-panel iii: P = P_open where (mask > threshold) AND (within 30 µm of vessel).
+  Hotspots must appear at vessels inside mask only.
 
 ---
 
-#### Panel C — Multi-Focal Network Targeting
+## Panel B: Anatomical specificity — single time point reference
 
-**What it shows:** Activity-dependent BBB opening scales with seizure severity
-at each focus; sub-therapeutic systemic dose reaches therapeutic levels only
-at active foci.
+**Claim:** "CBG activation with hippocampus-specific enhancers produces bilateral
+drug accumulation in hippocampal grey matter that respects white matter boundaries."
 
-**Geometry:** 2D cortical slice, 10 mm x 10 mm.
+Coronal mouse brain at Bregma -2.0 mm. Anatomical polygons: cortex, CA1/CA3/DG
+(bilateral), corpus callosum, thalamus, lateral ventricles, fimbria.
 
-**Two foci:**
-- Focus 1: position (3, 5) mm, c-Fos = 40x → opening radius r1
-- Focus 2: position (7, 5) mm, c-Fos = 15x → opening radius r2 < r1
-- Derive radii from Panel B threshold model:
-  r = radius at which C_opener falls to threshold_open
-
-**Solve 2D diffusion PDE for drug concentration across the slice.**
-
-**Show as filled contour heatmap** with:
-- Dashed white circles: BBB opening zone boundaries
-- Solid contour line: therapeutic threshold
-- Second contour (if reached): side-effect threshold
-
-**Add inset:** 1D cross-section along y = 5 mm with both thresholds marked.
-
-Set C_blood so that systemic-only gives < 10% of therapeutic threshold,
-confirming that drug reaches therapeutic levels only within opening zones.
+Two-compartment diffusion: grey matter D=3e-4, white matter D=5e-5 cm²/min
+(Vorisek & Sykova 1997). BBB open in bilateral CA1 and DG only.
+Steady-state drug concentration heatmap overlaid on outlines.
+White matter must be visibly darker than hippocampal grey.
+Add CA1, DG, CC labels (6pt italic). 1 mm scale bar.
 
 ---
 
-### Notebook: CBG_model_explainer.ipynb
+## Panel C: Single-event time course — the feedback cycle
 
-Structure with these cells in order:
+**Claim:** "A single seizure event triggers the full CBG negative feedback cycle:
+pathological activity drives BBB opener accumulation, which gates drug entry,
+which terminates the seizure — all within a ~60 min window."
 
-**Cell 1 — Markdown:** Title + 3–4 sentence plain-language description of CBG
-and what this notebook models. Audience: non-specialist grant reviewer.
+This panel is the KEY to reading Panel D. It shows the variables that become
+the spatial heatmaps in Panel D.
+Time axis 0–90 min. Two stacked sub-panels sharing x-axis.
 
-**Cell 2 — Markdown:** Physical model overview. Explain the PDE in plain
-language. Include equation in LaTeX. One paragraph per panel. Include a simple
-matplotlib schematic of the 1D geometry (Panel A) and 2D grid (Panel C).
+Top: c-Fos fold-change A(t). Red = seizure, blue dashed = physiological.
+  Dashed horizontal at A_thresh ("BBB-opening threshold").
+  Shaded region showing BBB opener P(t) accumulation window.
 
-**Cell 3 — Code:** Imports. Pin package versions in comments.
-Include: numpy, scipy, matplotlib, ipywidgets, IPython.display.
+Bottom: Drug concentration C(t). Red = CBG active. Grey flat = no CBG.
+  Dashed lines: therapeutic threshold (green, "assumed") and
+  side-effect threshold (orange, "assumed").
 
-**Cell 4 — Markdown + Code:** TUNABLE PARAMETERS.
-Header: `## Tunable Parameters — change these to explore the model`
+**ODE system:**
+  dA/dt = k_A * S(t) - lambda_A * A
+  dP/dt = k_P * max(A - A_thresh, 0) - lambda_P * P
+  dC/dt = k_C * max(P - P_thresh, 0) * (C_blood - C) - lambda_C * C
+  dS/dt = -k_suppress * C * S    ← drug terminates seizure activity
 
-Define all parameters as named constants with inline source citations
-(copy values from AGENTS.md parameter table).
+Parameters: k_A=2.0, lambda_A=0.05, A_thresh=3.0 (Tullai 2007; Bhatt 2020),
+k_P=0.1, lambda_P=0.015 (estimated from CCL2), k_C=0.5, lambda_C=0.05
+(Vendel 2019), P_thresh=0.3 (LABEL AS ASSUMED), k_suppress=0.8 (LABEL AS ASSUMED).
 
-Add ipywidgets sliders for these five parameters:
-- P_open:          range 1e-4 to 1e-2,  step 1e-4
-- sigma_mm:        range 0.1  to 2.0,   step 0.1
-- C_blood:         range 0.1  to 2.0,   step 0.1
-- alpha:           range 0.01 to 1.0,   step 0.01
-- c_fos_seizure:   range 10   to 100,   step 5
+Seizure: S₀=15 for t∈[10,40] min, subject to suppression. Linear axes only.
 
-Wire sliders to regenerate Panel A and Panel B live on change.
-Add a plain-English sentence below each slider explaining what it controls.
-
-**Cell 5 — Markdown + Code:** Panel A in isolation.
-Below plot, print:
-- Peak amplification ratio: Xx (benchmark: 10–100x)
-- Therapeutic threshold reached within opening zone: YES/NO
-- Side-effect threshold exceeded anywhere: YES/NO
-
-**Cell 6 — Markdown + Code:** Panel B in isolation.
-Below plot, print:
-- Seizure (30x, 1000/mm³) in RED: YES/NO
-- Learning (3x, 1000/mm³) in BLUE: YES/NO
-- Normal (2x, 500/mm³) in BLUE: YES/NO
-
-**Cell 7 — Markdown + Code:** Panel C in isolation.
-Below plot, print:
-- Focus 1 centre concentration: X (above therapeutic: YES/NO)
-- Focus 2 centre concentration: X (above therapeutic: YES/NO)
-- Off-target max concentration: X (below therapeutic: YES/NO)
-
-**Cell 8 — Code:** Assemble and save the final figure (all 3 panels).
-Print: `Figure saved: CBG_pilot_figure.pdf and CBG_pilot_figure.png`
-
-**Cell 9 — Markdown:** Parameter sources table.
-Columns: Parameter | Value used | Source | Assumption/caveat
-One row per parameter. Flag any estimated values.
-
-**Cell 10 — Markdown:** Limitations and next steps.
-5–7 bullet points covering: what the model does not capture (tortuosity,
-perivascular flow, protein binding, inflammation-driven permeability changes),
-what experimental data would constrain each free parameter, and what the
-Phase 2 model extension would include (multi-site, pharmacodynamic coupling,
-patient-specific geometry from MRI).
+Mark the 5 time points used in Panel D as vertical dashed lines on Panel C
+(e.g. t = 0, 15, 30, 45, 70 min) so the reader can map Panel D back to Panel C.
 
 ---
 
-## Task-specific quality checks
+## Panel D: Spatial evolution — 4 rows × 5 time snapshots
 
-Run after generation. Print PASS/FAIL. Revise and regenerate if any FAIL.
-Also run all universal checks from AGENTS.md.
+**Claim:** "Without CBG, seizure-driven c-Fos expression spreads through the
+hippocampus while drug concentration remains zero throughout. With CBG, drug
+entry coincides spatially and temporally with peak c-Fos expression and
+accelerates seizure resolution, visible as localised drug hotspots that
+track and then outlast the activity."
 
-- [ ] CHECK A1: Peak ratio (CBG / systemic) is 10–100x → else adjust P_open
-- [ ] CHECK A2: CBG curve exceeds therapeutic threshold inside zone,
-               falls below it outside → else adjust sigma or P_open
-- [ ] CHECK A3: CBG curve stays below side-effect threshold everywhere
-               → else lower C_blood
-- [ ] CHECK B1: (1000/mm³, 30x) → RED; (1000/mm³, 3x) → BLUE
-               → else adjust alpha
-- [ ] CHECK B2: Boundary cleanly separates seizure from physiological regimes
-               at some density value → else revise threshold model
-- [ ] CHECK C1: Focus 1 centre exceeds therapeutic threshold
-               → else adjust opening radius or C_blood
-- [ ] CHECK C2: Off-target regions remain below therapeutic threshold
-               → else lower C_blood
-- [ ] CHECK N1: Notebook has exactly 10 cells; sliders functional;
-               parameter table complete
-- [ ] CHECK N2: Notebook Cell 4 parameter values exactly match values
-               used to generate the saved figure
+**Layout:**
+Full panel width. 4 rows × 5 columns of spatial heatmaps.
+Each small panel: same coronal hippocampal geometry as Panel B.
+Each small panel approx 28 mm wide × 14 mm tall.
+
+**The 5 columns are 5 time snapshots** of the hippocampal section as the
+seizure evolves. Use the same 5 time points marked in Panel C:
+  t₁ = 0 min    (pre-seizure baseline)
+  t₂ = 15 min   (early seizure, c-Fos rising)
+  t₃ = 30 min   (seizure peak)
+  t₄ = 45 min   (resolution phase, with vs without CBG diverges)
+  t₅ = 70 min   (post-seizure)
+
+Time point labels as column headers above the grid: "t=0", "t=15 min", etc.
+
+**The 4 rows are:**
+  Row 1: c-Fos spatial distribution — NO CBG condition
+  Row 2: Drug concentration — NO CBG condition
+  Row 3: c-Fos spatial distribution — CBG active condition
+  Row 4: Drug concentration — CBG active condition
+
+Row labels on left margin (7pt): "c-Fos (no CBG)", "Drug (no CBG)",
+  "c-Fos (CBG)", "Drug (CBG)"
+
+**How to generate the spatial heatmaps:**
+
+The hippocampal c-Fos spatial distribution at each time point is derived from
+the ODE solution. c-Fos expression A(t) from the ODE defines the AMPLITUDE of
+the spatial c-Fos pattern. The spatial PATTERN is a 2D Gaussian seeded at the
+seizure initiation site (left CA1) and spreading across the hippocampus with a
+diffusion-like spread rate of 0.3 mm/min (consistent with hippocampal seizure
+propagation speeds; Trevelyan et al. 2006, J Neurosci).
+
+c-Fos spatial field at time t:
+  F(x,y,t) = A(t) * G(x,y,t)
+  where G is a 2D spreading Gaussian:
+    G(x,y,t) = exp(-r²/ (2 * (sigma_0 + v_spread * t)²))
+  sigma_0 = 0.3 mm (initial focus), v_spread = 0.05 mm/min
+
+Drug concentration spatial field at time t:
+  Use the same coronal geometry as Panel B (grey/white matter compartments).
+  Drug source at each time point = k_C * max(P(t) - P_thresh, 0) * C_blood
+  applied only within regions where F(x,y,t) > F_thresh (BBB opens where
+  neurons are sufficiently active AND expressing the transgene).
+  Solve 2D diffusion at each time point (use steady-state approximation within
+  each snapshot — drug diffusion is fast relative to ODE timescale).
+  NO CBG condition: drug source = 0 everywhere at all times.
+
+**Colourscales:**
+  Rows 1 & 3 (c-Fos): hot colourmap (black-red-yellow). Shared scale
+    0 to max(A(t)) across all panels in rows 1 and 3.
+  Rows 2 & 4 (drug): viridis. Shared scale 0 to max_C across all panels
+    in rows 2 and 4 (CBG condition sets the max; no-CBG will be uniformly dark).
+  Single colourbar for rows 1&3, placed right of row 1.
+  Single colourbar for rows 2&4, placed right of row 2.
+
+**Key visual results that must be visible:**
+1. Row 1 (c-Fos, no CBG): spatial spread of activity from t₂ to t₃,
+   then persistence through t₄ and t₅ (seizure runs full course uninterrupted).
+2. Row 2 (drug, no CBG): uniformly dark (near-zero) at all time points.
+   The visual message is silence — nothing is entering the brain.
+3. Row 3 (c-Fos, CBG): same spatial spread at t₂ and t₃ as Row 1, but
+   at t₄ the activity is visibly less intense — seizure is terminating early
+   because drug has entered. By t₅ the field is darker than in Row 1.
+4. Row 4 (drug, CBG): near-zero at t₁ and t₂ (drug not yet entered),
+   bright hotspots appear at t₃ (drug entering at peak BBB-opener window),
+   hotspots persist at t₄ then begin to decay at t₅.
+   Crucially: drug hotspots are spatially co-localised with the c-Fos pattern
+   in Row 3, not diffuse — they track the pathological activity.
+
+**Formatting:**
+- No tick labels on any small panel.
+- No axes on small panels — clean image, just the heatmap and the anatomical outlines.
+- Anatomical outlines as thin white lines (0.3pt) within each panel.
+- Column separator: 1.5 mm gap. Row separator: 2 mm gap.
+- Thicker separator (3 mm) between rows 2 and 3 (condition break).
+- Small horizontal bar between rows 2 and 3 with labels "No CBG" and "CBG active".
 
 ---
 
-## Caption
+## Critic layer (mandatory, run before saving)
 
-Generate an 80–120 word figure caption alongside the figure.
-State what each panel shows, name the key result in each, cite parameter sources.
-Do not use the word "novel."
-Write this into Cell 8 as a markdown sub-cell and print it as standalone output.
+```
+CRITIC ASSESSMENT:
+Test 1 (Single-claim):
+  Panel A: [sentence] — PASS/FAIL
+  Panel B: [sentence] — PASS/FAIL
+  Panel C: [sentence] — PASS/FAIL
+  Panel D: [sentence] — PASS/FAIL
+
+Test 2 (Grounded parameters):
+  [Each threshold/boundary → source or ASSUMED label]
+
+Test 3 (Biological realism):
+  [Vascular branching / seizure spatial spread / tissue compartments] — PASS/FAIL
+
+Test 4 (Mock reviewer — two sentences):
+  [Write them] — PASS/FAIL
+
+Test 5 (Story coherence — A→B→C→D):
+  [Progressive argument?] — PASS/FAIL
+
+OVERALL: PASS / FAIL
+```
+
+Revise and regenerate any failing panels before saving.
+
+---
+
+## Notebook: CBG_model_explainer.ipynb
+
+Cell 1: Title + 3-sentence description.
+Cell 2: Physical model overview — LaTeX for A, B, C ODEs. Explain seizure
+  spatial propagation model used in Panel D. Explain feedback term explicitly.
+Cell 3: Imports + pinned versions.
+Cell 4: TUNABLE PARAMETERS with ipywidgets sliders:
+  P_open, A_thresh, P_thresh, k_suppress, v_spread (seizure propagation speed).
+  Wire to regenerate Panel C time course and Panel D grid live.
+Cell 5: Panel A code.
+Cell 6: Panel B code.
+Cell 7: Panel C code. Verify 5 time point markers match Panel D columns.
+Cell 8: Panel D code. Verify spatial snapshots match Panel C time course.
+Cell 9: Assemble and save. Print CRITIC ASSESSMENT block.
+Cell 10: Parameter table (value | source | ASSUMED flag).
+Cell 11: Limitations and next steps.
+
+---
+
+## Final checks
+
+- [ ] A1: CBG hotspot 10–100x systemic-only
+- [ ] A2: Off-target vessels at baseline
+- [ ] B1: White matter darker than hippocampal grey
+- [ ] C1: Seizure condition drug enters therapeutic range
+- [ ] C2: Physiological condition stays below threshold
+- [ ] C3: 5 time points marked as vertical lines in Panel C
+- [ ] D1: Panel D column times match Panel C markers exactly
+- [ ] D2: Row 2 (drug, no CBG) uniformly dark at all time points
+- [ ] D3: Row 3 (c-Fos, CBG) shows visibly earlier termination vs Row 1 at t₄ and t₅
+- [ ] D4: Row 4 (drug, CBG) hotspots are spatially co-localised with Row 3 c-Fos at t₃
+- [ ] D5: Shared colourscale within rows 1&3; shared within rows 2&4
+- [ ] N2: P_thresh and k_suppress labelled ASSUMED in figure and notebook
+- [ ] CRITIC: All 5 tests pass
