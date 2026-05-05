@@ -1,0 +1,22 @@
+{
+  "genes": {
+    "Prox1": {
+      "description": "DG granule cells \u2014 bilateral dentate gyrus specific",
+      "section_dataset_id": 71587828,
+      "section_image_id": 101889718
+    },
+    "Wfs1": {
+      "description": "CA1 pyramidal neurons",
+      "section_dataset_id": 79556218,
+      "section_image_id": 102025813
+    },
+    "Calb2": {
+      "description": "Mossy cells / CA2",
+      "section_dataset_id": 71717848,
+      "section_image_id": 101892343
+    }
+  },
+  "api_base": "http://api.brain-map.org/api/v2",
+  "image_download": "http://api.brain-map.org/api/v2/image_download/{section_image_id}?downsample=3",
+  "note": "If local files absent, query API at runtime using section_dataset_id"
+}

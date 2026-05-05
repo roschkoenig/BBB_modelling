@@ -1,0 +1,28 @@
+{
+  "vasculature": [
+    {
+      "file": "synthetic_vessel_tree.json",
+      "size_kb": 141
+    }
+  ],
+  "atlas": [
+    {
+      "file": "allen_structure_metadata.json",
+      "size_kb": 0
+    },
+    {
+      "file": "hippocampus_polygons_Bregma-2mm.json",
+      "size_kb": 6
+    },
+    {
+      "file": "structure_ids.json",
+      "size_kb": 0
+    }
+  ],
+  "enhancers": [
+    {
+      "file": "allen_ish_manifest.json",
+      "size_kb": 0
+    }
+  ]
+}
