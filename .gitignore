@@ -1,0 +1,26 @@
+# Raw downloaded data — not committed
+data/raw/
+
+# Generated figure outputs
+CBG_pilot_figure.png
+CBG_pilot_figure.pdf
+panel_a_debug.png
+
+# Intermediate data caches
+*.npz
+data/vasculature/minivess_slice.tif
+data/atlas/P56_Annotation_downsample2.nii.gz
+data/enhancers/*.jpg
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store

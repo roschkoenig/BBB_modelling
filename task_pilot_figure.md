@@ -1,5 +1,36 @@
 # Task: Generate CBG Pilot Figure + Explainer Notebook
 
+## What this figure is arguing (read this first)
+
+This figure is the centrepiece of an **ARIA grant proposal** for the Chemical Brain Gate (CBG).
+
+The core argument: CBG is a **closed-loop regional drug delivery system** that accesses
+**biology-defined targets** — wherever hyperactive neurons are — rather than
+**anatomy-defined targets** (fixed nuclei targeted by stereotactic injection or fixed
+electrode placement). This is the fundamental differentiator from every existing neuro-
+drug delivery approach: we do not choose where the drug goes. The brain tells us.
+
+The narrative Panel A → B → C → D must tell, without captions:
+
+> *Systemic drug delivery reaches only vessel walls. CBG opens the BBB selectively at
+> sites of pathological activity. Drug floods in exactly where the seizure is, not where
+> a surgeon aimed. The seizure drives its own termination via a negative-feedback loop:
+> activity → c-Fos → BBB-opener → drug entry → seizure suppression.*
+
+**The key result is Panel D**, specifically the contrast between Row 1 (c-Fos spreads and
+persists, drug stays zero) and Rows 3–4 (c-Fos spreads identically, then drug appears
+co-localised with c-Fos, and c-Fos visibly retreats). The drug appears WHERE the seizure
+is, not where it was pre-programmed to go.
+
+**Panel D t=0 must NOT be empty.** At t=0 (pre-seizure baseline), hippocampal neurons
+have physiological c-Fos expression (A_ss_phys ≈ 2.8 fold, Bhatt et al. 2020). The
+c-Fos rows should show a diffuse, low-level warm glow throughout bilateral hippocampal
+grey matter at t=0 — clearly below the seizure peak but not black. This is important:
+a completely dark t=0 implies zero baseline activity, which is biologically wrong and
+weakens the threshold argument (if baseline=0, any threshold looks arbitrary).
+
+---
+
 ## STEP 0 — Run fetch_data.py first
 
 Before writing any figure code:
@@ -9,6 +40,14 @@ Check data/manifest.json to confirm what was fetched vs synthetic.
 Note in the critic assessment which panels use real vs generated data.
 If fetch_data.py fails on a source, retry up to 3 times before accepting
 the synthetic fallback. Do not skip this step.
+
+**Real data is strongly preferred** — the grant proposal is more convincing if the
+vascular geometry is real two-photon imaging and the atlas is Allen CCF data.
+If you are running in a network-sandboxed environment (as has been the case),
+synthetic fallbacks are acceptable but must be explicitly flagged in the critic
+assessment and in the figure caption. The synthetic vascular tree (Murray's law
+fractal) and hardcoded hippocampal polygons are adequate for this pilot figure,
+but note them as synthetic.
 
 ---
 
@@ -235,11 +274,23 @@ Each small panel: same coronal geometry as Panel B (use same polygon/mask).
 Approximate size per panel: 28 mm wide × 14 mm tall.
 
 The 5 COLUMNS are 5 time snapshots (same times as Panel C vertical lines):
-  t₁ = 0 min     (baseline — pre-seizure)
-  t₂ = 15 min    (early seizure, c-Fos rising)
+  t₁ = 0 min     (baseline — pre-seizure; physiological hippocampal c-Fos visible)
+  t₂ = 15 min    (early seizure, c-Fos rising above baseline)
   t₃ = 30 min    (seizure peak)
   t₄ = 45 min    (resolution, with vs without CBG diverges)
   t₅ = 70 min    (post-seizure)
+
+**t=0 must NOT be empty.** The c-Fos rows at t=0 should show:
+- A diffuse, low-level warm glow throughout bilateral hippocampal grey matter
+  (CA1, CA3, DG bilaterally) representing physiological baseline expression
+- Amplitude: A_ss_phys ≈ 2.8 (pre-seizure steady state). On a 0–35 colour scale
+  this is ~8% of maximum — clearly dim but visibly non-zero.
+- Spatial extent: broad coverage of hippocampal grey matter, not a tight Gaussian.
+  Use a broad background term (sigma ≥ 1.5 mm) covering bilateral hippocampus,
+  combined with the tight seizure-onset Gaussian (sigma_0=0.3mm at seed).
+- The whole point of showing t=0 is to demonstrate there IS a physiological
+  baseline that the system ignores (P does not cross threshold), making the
+  seizure response look genuinely selective rather than trivially triggered.
 
 Column headers above grid (8pt): "t=0", "t=15 min", "t=30 min", "t=45 min", "t=70 min".
 
@@ -425,3 +476,20 @@ Cell 11: Limitations: tortuosity, perivascular flow, protein binding,
 - [ ] N1: P_thresh and k_suppress labelled ASSUMED in figure and notebook
 - [ ] N2: fetch_data.py called in Cell 3 if data/ absent
 - [ ] CRITIC: All 5 tests pass
+
+---
+
+## STEP LAST — Verify before committing (mandatory)
+
+After generating the figure, run:
+  python verify_figure.py
+
+Read the output. If any check fails, fix the issue, regenerate, and rerun.
+DO NOT commit until verify_figure.py exits with code 0.
+
+The commit message must include the full verify_figure.py summary line,
+e.g.: "CBG pilot figure: 12/12 verification checks pass"
+
+Do not replace verify_figure.py with self-assessment. The point of this
+script is that it cannot be gamed — it reads the actual pixels of the
+output file, not the code that generated it.

@@ -166,3 +166,28 @@ This script fetches all source data with multiple fallback strategies:
   threshold to extract high-expression regions, use as the CBG expression mask.
   This gives a genuinely bilateral, anatomically grounded expression pattern
   rather than a synthetic Gaussian.
+
+---
+
+## Mandatory verification before committing
+
+After generating the figure, run:
+  python verify_figure.py
+
+This script performs PIXEL-LEVEL and VALUE-LEVEL checks that cannot be
+faked by self-assessment. It will exit with code 1 if any check fails.
+
+**You are NOT allowed to commit until verify_figure.py exits 0.**
+
+If verify_figure.py fails:
+1. Read the failing check messages carefully
+2. Fix the specific issue in the figure generation code
+3. Regenerate the figure
+4. Run verify_figure.py again
+5. Repeat until exit code is 0
+
+The most common failure modes and their fixes are printed by verify_figure.py
+itself when it fails. Do not skip this step or work around it.
+
+The commit message must include the verify_figure.py output summary, e.g.:
+  "CBG figure v2: 12/12 checks pass"

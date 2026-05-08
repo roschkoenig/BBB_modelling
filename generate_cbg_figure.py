@@ -201,11 +201,18 @@ PA_DX = 0.02          # mm per pixel = 0.002 cm
 segs = build_vascular_tree(domain=2.0)
 vm_pa = make_vessel_map(segs, PA_NX, PA_NY, dx_cm=PA_DX*0.1, sigma_um=15)
 
-# Mask (circular Gaussian, r=0.7mm centre of patch)
-cx_m, cy_m = PA_NX//2, PA_NY//2
+# Patchy multi-blob expression mask (not a single Gaussian — biological enhancer
+# expression is not radially symmetric)
+rng_mask = np.random.default_rng(7)
 yy_pa, xx_pa = np.mgrid[0:PA_NY, 0:PA_NX]
-rr2 = ((xx_pa - cx_m)*PA_DX)**2 + ((yy_pa - cy_m)*PA_DX)**2
-mask_pa = np.exp(-rr2 / (2*0.7**2))
+blob_centres = [(0.5, 0.8), (0.9, 1.3), (1.3, 0.6), (0.7, 1.7), (1.6, 1.4)]
+blob_radii   = [0.25, 0.30, 0.20, 0.18, 0.22]
+blob_weights = [1.0, 0.85, 0.70, 0.65, 0.75]
+mask_pa = np.zeros((PA_NY, PA_NX))
+for (cx, cy), r, w in zip(blob_centres, blob_radii, blob_weights):
+    rr2 = ((xx_pa*PA_DX - cx)**2 + (yy_pa*PA_DX - cy)**2)
+    mask_pa += w * np.exp(-rr2 / (2*r**2))
+mask_pa /= mask_pa.max()
 
 # Panel Ai: intact BBB
 P_map_intact = np.full((PA_NY, PA_NX), P_intact)
@@ -365,14 +372,40 @@ for tp in TIME_PTS:
     C_at_t[tp] = {'cbg': y_cbg[2], 'nocbg': 0.0}
 
 # c-Fos spatial fields (same grid as Panel B)
-r2_from_seed = (BX - seed_x)**2 + (BY - seed_y)**2
+# Bilateral: seed in left CA1; right CA1 follows with 5 min delay (Trevelyan 2006)
+seed_x_r, seed_y_r = 2.6, 0.4   # mirror of left CA1
+r2_from_seed   = (BX - seed_x)**2 + (BY - seed_y)**2
+r2_from_seed_r = (BX - seed_x_r)**2 + (BY - seed_y_r)**2
+grey_float = grey_mask.astype(float)   # white matter and ventricles stay dark
+
+# Background physiological hippocampal c-Fos expression (Bhatt et al. 2020).
+# Neurons have a pre-seizure steady-state level A_ss_phys ≈ 2.8 fold-change.
+# This is biologically required at t=0: a completely dark pre-seizure baseline
+# implies zero activity, which is wrong and makes the threshold look arbitrary.
+# Use a broad Gaussian (sigma=1.8mm) covering bilateral hippocampal grey.
+hip_centre_x, hip_centre_y = 0.0, 0.2   # midpoint between bilateral hippocampi
+sigma_bg = 1.8   # mm — broad coverage of bilateral hippocampus
+r2_bg = (BX - hip_centre_x)**2 + (BY - hip_centre_y)**2
+G_background = np.exp(-r2_bg / (2 * sigma_bg**2))
+G_background *= grey_float   # restrict to grey matter only
+A_ss_phys = S_phys * k_A / lambda_A   # ≈ 2.8 — physiological steady state
 
 cfos_fields = {}
 for tp in TIME_PTS:
     sigma_t = sigma_0 + v_spread * tp
-    G = np.exp(-r2_from_seed / (2 * sigma_t**2))
-    cfos_fields[('cbg',  tp)] = A_at_t[tp]['cbg']  * G * brain_mask
-    cfos_fields[('nocbg',tp)] = A_at_t[tp]['nocbg'] * G * brain_mask
+    G_L = np.exp(-r2_from_seed / (2 * sigma_t**2))
+    # Right hemisphere fires 5 min later
+    tp_r    = max(0.0, tp - 5.0)
+    sigma_r = sigma_0 + v_spread * tp_r
+    G_R = np.exp(-r2_from_seed_r / (2 * sigma_r**2))
+    G_seizure = np.maximum(G_L, G_R)
+    # Combine: seizure spreading Gaussian (amplitude = A(t)) + physiological background
+    # The background ensures t=0 is visibly non-zero throughout hippocampal grey matter.
+    # During seizure, the seizure component dominates (A_seizure >> A_ss_phys).
+    for cond in ('cbg', 'nocbg'):
+        F_seizure = A_at_t[tp][cond] * G_seizure * grey_float
+        F_bg      = A_ss_phys * G_background
+        cfos_fields[(cond, tp)] = np.maximum(F_seizure, F_bg)
 
 # Drug spatial fields (CBG: solve 2D PDE; no-CBG: zeros)
 drug_fields = {}
@@ -380,7 +413,9 @@ drug_fields = {}
 def solve_drug_snapshot(P_ode_val, cfos_field, D_map, brain_mask, dx_mm=0.04):
     """Steady-state drug diffusion with source where F > F_thresh (CBG condition)."""
     src_strength = k_C * max(P_ode_val - P_thresh, 0.0) * C_blood
-    source_mask  = (cfos_field > F_thresh) & brain_mask
+    # Drug enters ONLY at BBB-open zones (hippocampus, determined by enhancer expression)
+    # not wherever c-Fos happens to be high — the spatial restriction comes from the transgene
+    source_mask  = bbo_mask
     if src_strength < 1e-10 or not source_mask.any():
         return np.where(brain_mask, 0.0, np.nan)
     ny, nx = D_map.shape
@@ -507,7 +542,7 @@ ax_B = fig.add_subplot(gs_top[1])
 im_B = ax_B.imshow(C_brain, origin='lower',
                     extent=[-B_W/2, B_W/2, -B_H/2, B_H/2],
                     cmap='viridis', vmin=0, vmax=np.nanmax(C_brain)*1.05,
-                    aspect='auto')
+                    aspect='equal')   # equal keeps coronal proportions (width > height)
 
 # Draw anatomical outlines
 def draw_poly_outline(ax, pts, color='white', lw=0.5, ls='-'):
@@ -618,8 +653,10 @@ for row_i, (cond, field) in enumerate(conditions):
         ax_d = fig.add_subplot(gs_D[row_i, col_i])
         key  = (cond, tp)
         data = cfos_fields[key] if field=='cfos' else drug_fields[key]
+        cmap_obj = plt.get_cmap(cmap_).copy()
+        cmap_obj.set_bad(color='black')   # nan (outside brain) renders as black
         im_d = ax_d.imshow(data, origin='lower', extent=brain_ext,
-                            cmap=cmap_, vmin=0, vmax=vm_, aspect='auto')
+                            cmap=cmap_obj, vmin=0, vmax=vm_, aspect='equal')
         # White anatomical outlines
         for pts_ in [brain_outline, cc, thalamus, ca1_r, ca1_l, dg_r, dg_l]:
             closed_ = np.vstack([pts_, pts_[0]])
@@ -659,12 +696,12 @@ fig.text(pos_D.x0 - 0.06, pos_D.y1 + 0.01, 'D',
          fontsize=8, fontweight='bold', va='bottom', transform=fig.transFigure)
 
 # ── SAVE ────────────────────────────────────────────────────────────────────
-out_dir = '/home/runner/work/BBB_modelling/BBB_modelling'
+out_dir = os.path.dirname(os.path.abspath(__file__))
 pdf_path = os.path.join(out_dir, 'CBG_pilot_figure.pdf')
 png_path = os.path.join(out_dir, 'CBG_pilot_figure.png')
 
-fig.savefig(pdf_path, dpi=600, bbox_inches='tight')
-fig.savefig(png_path, dpi=600, bbox_inches='tight')
+fig.savefig(pdf_path, dpi=300, bbox_inches='tight')
+fig.savefig(png_path, dpi=300, bbox_inches='tight')
 plt.close(fig)
 
 pdf_sz = os.path.getsize(pdf_path)
@@ -777,7 +814,8 @@ $$D(x,y)\,\nabla^2 C - k_e\,C + P(x,y)\,\delta_{\rm vessel}(x,y)\,(C_{\rm blood}
 Solved at steady state via sparse FD (scipy.sparse.linalg.spsolve)."""))
 
 # Cell 3: Imports
-nb.cells.append(new_code_cell("""import matplotlib
+nb.cells.append(new_code_cell("""import os, subprocess, pathlib
+import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
@@ -788,6 +826,10 @@ from scipy.ndimage import gaussian_filter
 import ipywidgets as widgets
 from IPython.display import display
 import warnings; warnings.filterwarnings('ignore')
+
+# Fetch source data if not already present
+if not pathlib.Path('data/manifest.json').exists():
+    subprocess.run(['python', 'fetch_data.py'], check=True)
 
 # Pinned versions
 import scipy, matplotlib as mpl, nbformat
@@ -945,7 +987,7 @@ nb.cells.append(new_markdown_cell("""## Limitations and next steps
 - [ ] Include protein diffusion term (D_protein = 1e-5 cm²/min, Nance 2014)
 - [ ] Multi-seizure / chronic model for repeated CBG activation"""))
 
-nb_path = '/home/runner/work/BBB_modelling/BBB_modelling/CBG_model_explainer.ipynb'
+nb_path = os.path.join(out_dir, 'CBG_model_explainer.ipynb')
 with open(nb_path, 'w') as f:
     nbformat.write(nb, f)
 nb_sz = os.path.getsize(nb_path)
