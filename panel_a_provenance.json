@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-08T17:37:59.655523",
+  "generated": "2026-05-08T18:36:30.909392",
   "source": "MiniVess EBRAINS",
   "sample": "mv44",
   "citation": "Poon et al. 2023, Scientific Data",
   "licence": "CC BY-NC-SA",
   "pixel_size_um": 0.994,
-  "downsample_factor": 4,
-  "working_pixel_um": 3.9760000000000004,
+  "downsample_factor": 1,
+  "working_pixel_um": 0.9940000000000001,
   "domain_mm": 0.508928,
   "parameters": {
-    "D_tissue_cm2_min": 0.0003,
+    "D_tissue_cm2_min": 1.875e-05,
     "P_intact_cm_min": 0.0001,
     "P_open_cm_min": 0.005,
     "k_e_per_min": 0.05,
@@ -25,26 +25,31 @@
     "HOTSPOT_RADIUS_MM"
   ],
   "results": {
-    "vessel_area_fraction": 0.4281005859375,
-    "expression_coverage": 0.189208984375,
-    "expression_centroid_x_mm": 0.10478555612903227,
-    "expression_centroid_y_mm": 0.40163756387096783,
-    "hotspot_ratio": 11.543171098731873,
-    "bbo_pixel_count": 1927
+    "vessel_area_fraction": 0.24252700805664062,
+    "expression_coverage": 0.18952178955078125,
+    "expression_centroid_x_mm": 0.10578707322571555,
+    "expression_centroid_y_mm": 0.40250817760959706,
+    "hotspot_ratio": 8.12499998984375,
+    "bbo_pixel_count": 17096
   },
   "gate_checks": {
     "MIP dynamic range > 100 counts": true,
-    "Vessel area fraction in [0.08, 0.55]": true,
+    "Working grid is full-resolution 512x512": true,
+    "Domain near full FOV (~0.509 mm)": true,
+    "Vessel area fraction in [0.08, 0.80]": true,
     "Largest connected component > 25% of vessel area": true,
     "Expression coverage in [0.12, 0.30]": true,
     "Hotspot centroid matches quarter-circle geometry": true,
-    "Hotspot radius close to 0.25 mm": true,
-    "bbo_mask is strict subset of vessel_mask": true,
+    "Hotspot radius near 0.25 mm": true,
+    "bbo_mask is subset of vessel mask": true,
     "At least 1 BBB-open vessel pixel exists": true,
+    "No BBB-open pixels outside hotspot": true,
     "C_intact bounded by C_blood": true,
     "C_open bounded by C_blood": true,
-    "Hotspot amplification in [3, 500]\u00d7": true,
-    "Peak concentration lies inside expression zone": true,
-    "Upper-tail enrichment (p95 on/off) > 1.01\u00d7": true
+    "All vessel pixels remain high concentration": true,
+    "Interstitial stays below vascular pool": true,
+    "Interstitial hotspot amplification in [3, 500]x": true,
+    "Interstitial peak lies inside expression zone": true,
+    "Interstitial upper-tail enrichment (p95 on/off) > 1.01x": true
   }
 }

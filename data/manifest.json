@@ -13,15 +13,21 @@
     {
       "file": "structure_ids.json",
       "size_kb": 0
-    },
-    {
-      "file": "hippocampus_polygons_Bregma-2mm.json",
-      "size_kb": 2
     }
   ],
   "enhancers": [
     {
       "file": "allen_ish_manifest.json",
+      "size_kb": 0
+    }
+  ],
+  "focal": [
+    {
+      "file": "focal_model_metadata.json",
+      "size_kb": 0
+    },
+    {
+      "file": "focal_raw_pointer.json",
       "size_kb": 0
     }
   ]

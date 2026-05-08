@@ -16,9 +16,18 @@ DATA_DIR = Path("data")
 VASC_DIR = DATA_DIR / "vasculature"
 ATLAS_DIR = DATA_DIR / "atlas"
 ENH_DIR   = DATA_DIR / "enhancers"
+FOCAL_DIR = DATA_DIR / "focal"
 
-for d in [VASC_DIR, ATLAS_DIR, ENH_DIR]:
+for d in [VASC_DIR, ATLAS_DIR, ENH_DIR, FOCAL_DIR]:
     d.mkdir(parents=True, exist_ok=True)
+
+FOCAL_PAPER = {
+    "pii": "S0969996122000249",
+    "doi": "10.1016/j.nbd.2022.105633",
+    "title": "Neuronal circuits sustaining neocortical-injury-induced status epilepticus",
+    "journal": "Neurobiology of Disease",
+    "year": 2022,
+}
 
 MAX_RETRIES = 3
 RETRY_WAIT  = 5  # seconds between retries
@@ -479,6 +488,120 @@ def fetch_enhancers():
 
 
 # ─────────────────────────────────────────────────────────
+# SOURCE 4: Focal model assets (neocortical-injury status epilepticus)
+# Primary paper: PII S0969996122000249, DOI 10.1016/j.nbd.2022.105633
+# Source tiers:
+#   1) raw registered maps (preferred, user-provided)
+#   2) figure-derived ROI template (atlas-registered approximation)
+#   3) synthetic fallback ROI
+# ─────────────────────────────────────────────────────────
+
+def _write_json(path, payload):
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2)
+
+
+def _generate_figure_derived_focal_roi(dest):
+    """
+    Generate a figure-derived unilateral cortical ROI template in mm coordinates.
+    This template is intentionally explicit about assumptions and provenance.
+    """
+    payload = {
+        "source_tier": "figure-derived",
+        "paper": FOCAL_PAPER,
+        "bregma_mm": -2.0,
+        "units": "mm relative to midline and cortical surface",
+        "roi_polygon_mm": [
+            [-2.4, 1.8],
+            [-1.9, 1.9],
+            [-1.3, 1.6],
+            [-1.0, 1.2],
+            [-1.1, 0.7],
+            [-1.6, 0.5],
+            [-2.1, 0.6],
+            [-2.5, 1.0]
+        ],
+        "registration_landmarks_mm": {
+            "midline": [0.0, 0.0],
+            "left_cortical_edge": [-4.0, 0.0],
+            "right_cortical_edge": [4.0, 0.0]
+        },
+        "notes": [
+            "Derived for focal neocortical injury workflow when raw rasters are unavailable.",
+            "Must be labelled figure-derived in all downstream outputs.",
+            "Replace with raw registered maps when available."
+        ]
+    }
+    _write_json(dest, payload)
+
+
+def _generate_synthetic_focal_roi(dest):
+    payload = {
+        "source_tier": "synthetic",
+        "paper": FOCAL_PAPER,
+        "bregma_mm": -2.0,
+        "units": "mm relative to midline and cortical surface",
+        "gaussian_focus": {
+            "center_mm": [-1.8, 1.2],
+            "sigma_x_mm": 0.55,
+            "sigma_y_mm": 0.40,
+            "rotation_deg": -18
+        },
+        "notes": [
+            "Synthetic fallback used because raw and figure-derived inputs were unavailable.",
+            "Do not use for quantitative claims without explicit caveat."
+        ]
+    }
+    _write_json(dest, payload)
+
+
+def fetch_focal_model():
+    log("\n=== SOURCE 4: Focal neocortical-injury model assets ===")
+
+    meta_path = FOCAL_DIR / "focal_model_metadata.json"
+    _write_json(meta_path, FOCAL_PAPER)
+
+    raw_candidates = []
+    raw_search_roots = [
+        FOCAL_DIR / "raw",
+        DATA_DIR / "raw",
+    ]
+    for root in raw_search_roots:
+        if root.exists():
+            for pattern in ("*.nii", "*.nii.gz", "*.npy", "*.npz"):
+                raw_candidates.extend(sorted(root.rglob(pattern)))
+
+    if raw_candidates:
+        selected = raw_candidates[0]
+        pointer_path = FOCAL_DIR / "focal_raw_pointer.json"
+        _write_json(pointer_path, {
+            "source_tier": "raw",
+            "paper": FOCAL_PAPER,
+            "selected_file": str(selected),
+            "candidate_count": len(raw_candidates),
+            "notes": [
+                "Raw focal map detected; downstream notebook should prefer this source.",
+                "Pointer file stores path only; original data remains in place."
+            ]
+        })
+        log(f"  Raw focal map found: {selected}")
+        return True
+
+    figure_roi_path = FOCAL_DIR / "focal_ictal_roi_figure_derived.json"
+    try:
+        _generate_figure_derived_focal_roi(figure_roi_path)
+        log(f"  Figure-derived ROI template created: {figure_roi_path.name}")
+        return True
+    except Exception as e:
+        log(f"  Figure-derived ROI generation failed: {e}")
+
+    synthetic_path = FOCAL_DIR / "focal_ictal_roi_synthetic.json"
+    _generate_synthetic_focal_roi(synthetic_path)
+    log(f"  Synthetic focal ROI created: {synthetic_path.name}")
+    return False
+
+
+# ─────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────
 
@@ -490,6 +613,7 @@ def main():
         "vasculature": fetch_vasculature(),
         "atlas":       fetch_atlas(),
         "enhancers":   fetch_enhancers(),
+        "focal_model": fetch_focal_model(),
     }
 
     log("\n=== SUMMARY ===")
@@ -501,7 +625,7 @@ def main():
 
     # Write manifest of what was actually fetched
     manifest = {}
-    for d in [VASC_DIR, ATLAS_DIR, ENH_DIR]:
+    for d in [VASC_DIR, ATLAS_DIR, ENH_DIR, FOCAL_DIR]:
         manifest[d.name] = [
             {"file": f.name, "size_kb": f.stat().st_size // 1024}
             for f in sorted(d.iterdir()) if f.stat().st_size > 0
