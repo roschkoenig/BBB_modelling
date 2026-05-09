@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-08T18:36:30.909392",
+  "generated": "2026-05-08T23:07:58.555377",
   "source": "MiniVess EBRAINS",
   "sample": "mv44",
   "citation": "Poon et al. 2023, Scientific Data",
@@ -16,7 +16,7 @@
     "C_blood_norm": 1.0,
     "low_percentile": 76,
     "high_percentile": 88,
-    "hotspot_radius_mm": 0.25,
+    "hotspot_radius_mm": 0.3,
     "vessel_sigma_um": 8.0
   },
   "assumed_parameters": [
@@ -26,11 +26,11 @@
   ],
   "results": {
     "vessel_area_fraction": 0.24252700805664062,
-    "expression_coverage": 0.18952178955078125,
-    "expression_centroid_x_mm": 0.10578707322571555,
-    "expression_centroid_y_mm": 0.40250817760959706,
+    "expression_coverage": 0.27289581298828125,
+    "expression_centroid_x_mm": 0.127006461013727,
+    "expression_centroid_y_mm": 0.38129001037211,
     "hotspot_ratio": 8.12499998984375,
-    "bbo_pixel_count": 17096
+    "bbo_pixel_count": 24361
   },
   "gate_checks": {
     "MIP dynamic range > 100 counts": true,
@@ -38,7 +38,7 @@
     "Domain near full FOV (~0.509 mm)": true,
     "Vessel area fraction in [0.08, 0.80]": true,
     "Largest connected component > 25% of vessel area": true,
-    "Expression coverage in [0.12, 0.30]": true,
+    "Expression coverage in [0.12, 0.40]": true,
     "Hotspot centroid matches quarter-circle geometry": true,
     "Hotspot radius near 0.25 mm": true,
     "bbo_mask is subset of vessel mask": true,

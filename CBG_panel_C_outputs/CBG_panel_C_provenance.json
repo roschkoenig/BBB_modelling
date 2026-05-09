@@ -1,0 +1,91 @@
+{
+  "generated": "2026-05-08T23:08:39.501865",
+  "notebook": "CBG_panel_C_dev.ipynb",
+  "objective": "Untreated vs treated cFos time-course with 5-window spatial spread and BBB-opening suppression",
+  "windows_min": [
+    [
+      0,
+      10
+    ],
+    [
+      10,
+      20
+    ],
+    [
+      20,
+      30
+    ],
+    [
+      30,
+      45
+    ],
+    [
+      45,
+      60
+    ]
+  ],
+  "scenarios": {
+    "untreated": "Seizure-driven cFos progression without drug",
+    "treated": "Drug-enabled cFos suppression after onset",
+    "blip_arm_included": true,
+    "blip_duration_min": 8.0
+  },
+  "parameters": {
+    "S_on": 8.0,
+    "S_rise_tau": 5.0,
+    "S_decay_tau": 18.0,
+    "S_drive_max": 1.0,
+    "S_pulse_off": 42.0,
+    "A_max": 45.0,
+    "k_induce": 0.42,
+    "k_decay": 0.035,
+    "treat_on": 16.0,
+    "C_input": 1.0,
+    "k_in": 0.32,
+    "k_clear": 0.07,
+    "k_sup": 0.1,
+    "EC50": 0.22,
+    "hill_n": 2.4,
+    "S_supp_coupling": 0.0
+  },
+  "checks": {
+    "untreated_rises_then_plateaus": true,
+    "treated_has_early_blip": false,
+    "treated_sustained_suppression_late": false,
+    "nonnegative_states": true
+  },
+  "results": {
+    "peak_treated_time_min": 45.300000000000004,
+    "peak_treated_value": 2.851729219934002,
+    "final_untreated": 6.762331352951701,
+    "final_treated": 2.101894009903773,
+    "final_efficacy_percent": 68.91761287346097
+  },
+  "spatial": {
+    "enabled": true,
+    "panel_a_source": "panel_a_data.npz",
+    "window_times_min": [
+      10.0,
+      20.0,
+      30.0,
+      45.0,
+      60.0
+    ],
+    "spatial_shape": [
+      512,
+      512
+    ],
+    "dx_mm": 0.000994,
+    "domain_mm": 0.508928,
+    "suppression_sigma_gain": 0.0,
+    "suppression_amp_gain": 0.1,
+    "max_drug_untreated": 1.0,
+    "max_drug_treated": 1.462474240860515
+  },
+  "fixed_reference_params": {
+    "D_tissue_cm2_min": 0.0003,
+    "P_intact_cm_min": 0.0001,
+    "P_open_cm_min": 0.005,
+    "k_e_per_min": 0.05
+  }
+}
