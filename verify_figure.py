@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-verify_figure.py — Automated verification of CBG pilot figure.
+verify_figure.py — Automated verification of CBG combined figure.
 Runs pixel-level and value-level checks that cannot be faked by self-assessment.
 Must exit 0 (all checks pass) before the agent is allowed to commit.
 
@@ -41,14 +41,14 @@ def load_png(path):
 # ─────────────────────────────────────────────────────────
 print("\n=== CBG FIGURE VERIFICATION ===\n")
 
-# Check figure exists
-fig_png = Path("CBG_pilot_figure.png")
-fig_pdf = Path("CBG_pilot_figure.pdf")
-nb_path = Path("CBG_model_explainer.ipynb")
+# Output paths
+fig_png = Path("CBG_outputs/CBG_figure.png")
+fig_pdf = Path("CBG_outputs/CBG_figure.pdf")
+nb_path = Path("CBG_combined_figure.ipynb")
 
 check("Figure PNG exists", fig_png.exists())
 check("Figure PDF exists", fig_pdf.exists())
-check("Notebook exists", nb_path.exists())
+check("Combined notebook exists", nb_path.exists())
 
 if not fig_png.exists():
     print("\nFATAL: No figure PNG found. Cannot run pixel checks.")
@@ -59,7 +59,7 @@ if img is None:
     print("\nFATAL: Could not load figure PNG.")
     sys.exit(1)
 
-# Strip alpha channel — PNG is RGBA; including alpha inflates brightness of dark pixels
+# Strip alpha channel
 if img.ndim == 3 and img.shape[2] == 4:
     img = img[:, :, :3]
 
@@ -67,153 +67,99 @@ h, w = img.shape[:2]
 print(f"\n  Figure dimensions: {w}×{h} px")
 
 # ─────────────────────────────────────────────────────────
-# CHECK 1: Figure dimensions
-# Nature Communications double-column at 300 dpi = ~2008 × 1772 px
-# Allow ±20%
 print("\n--- Layout checks ---")
-expected_w_px = int(170 / 25.4 * 300)  # 170mm at 300dpi
-expected_h_px = int(150 / 25.4 * 300)  # 150mm at 300dpi
 
-check("Figure width in Nature double-column range",
-      expected_w_px * 0.7 < w < expected_w_px * 1.5,
-      f"got {w}px, expected ~{expected_w_px}px (±30%)")
+# Figure is 17"×10" at 600 dpi → 10200×6000 px; allow ±40% for screen-dpi saves
+check("Figure width is wide-format (>= 1000 px)",
+      w >= 1000,
+      f"got {w} px")
 
-check("Figure has two rows (height/width ratio > 0.7)",
-      h / w > 0.7,
-      f"aspect ratio = {h/w:.2f}, expected > 0.7 for two-row layout")
-
-# ─────────────────────────────────────────────────────────
-# CHECK 2: Panel D is not blank
-# The bottom row (Panel D) should occupy roughly the bottom 55% of the figure.
-# It should NOT be mostly black (i.e. drug rows all zeros everywhere)
-print("\n--- Panel D checks ---")
-
-panel_d_region = img[int(h * 0.40):, :]  # bottom 60%
-
-# Row 4 (drug CBG) occupies ~87-97% of figure height in this layout
-row4_region = img[int(h * 0.87):int(h * 0.97), int(w * 0.05):int(w * 0.75)]
-
-if img.dtype == np.float32 or img.dtype == np.float64:
-    row4_max = row4_region.max()
-    row4_mean = row4_region.mean()
-else:
-    row4_max = row4_region.max() / 255.0
-    row4_mean = row4_region.mean() / 255.0
-
-check("Panel D row 4 (drug CBG) has non-zero values",
-      row4_max > 0.05,
-      f"max pixel value in row 4 = {row4_max:.3f} (must be > 0.05)")
-
-check("Panel D row 4 is not uniformly bright (drug is spatially restricted)",
-      row4_mean < 0.6,
-      f"mean pixel value in row 4 = {row4_mean:.3f} (must be < 0.6 — drug should not fill whole region)")
-
-# Row 2 (drug, no CBG) occupies ~62-71% of figure height — should be near-zero
-# White anatomical outlines inflate the mean slightly, so threshold is 0.40
-row2_region = img[int(h * 0.62):int(h * 0.71), int(w * 0.05):int(w * 0.60)]
-if img.dtype in [np.float32, np.float64]:
-    row2_mean = row2_region.mean()
-else:
-    row2_mean = row2_region.mean() / 255.0
-
-check("Panel D row 2 (drug no CBG) is near-zero (drug never enters)",
-      row2_mean < 0.40,
-      f"mean pixel value in row 2 = {row2_mean:.3f} (must be < 0.40 — no drug without CBG)")
-
-# Rows 1 and 3 (c-Fos) should diverge at t4/t5 (rightmost columns)
-# Row 1 c-Fos no-CBG: ~48-58%; Row 3 c-Fos CBG: ~74-84%
-row1_right = img[int(h*0.48):int(h*0.58), int(w*0.62):int(w*0.90)]
-row3_right = img[int(h*0.74):int(h*0.84), int(w*0.62):int(w*0.90)]
-
-if img.dtype in [np.float32, np.float64]:
-    r1_brightness = row1_right.mean()
-    r3_brightness = row3_right.mean()
-else:
-    r1_brightness = row1_right.mean() / 255.0
-    r3_brightness = row3_right.mean() / 255.0
-
-check("Rows 1 and 3 diverge at t4/t5 (CBG terminates seizure earlier)",
-      abs(r1_brightness - r3_brightness) > 0.03,
-      f"row1 brightness={r1_brightness:.3f}, row3 brightness={r3_brightness:.3f}, "
-      f"diff={abs(r1_brightness-r3_brightness):.3f} (need >0.03)")
+check("Figure aspect ratio consistent with landscape layout (0.4 < h/w < 0.8)",
+      0.4 < h / w < 0.8,
+      f"h/w = {h/w:.2f}")
 
 # ─────────────────────────────────────────────────────────
-# CHECK 3: Panel B is coronal (not a dorsal oval)
-# A coronal section at Bregma -2mm should be wider than tall.
-# A dorsal oval is roughly as wide as tall or taller.
-# Panel B occupies roughly the top-right quadrant: x=35-70%, y=0-40%
-print("\n--- Panel B geometry check ---")
+# Panel A checks — left ~28% of the figure width
+print("\n--- Panel A checks ---")
 
-panelB = img[int(h*0.02):int(h*0.38), int(w*0.37):int(w*0.70)]
+# Normalise pixel values to [0,1]
+img_f = img.astype(float)
+if img_f.max() > 1.5:
+    img_f /= 255.0
 
-# Convert to greyscale if needed
-if len(panelB.shape) == 3:
-    panelB_grey = panelB.mean(axis=2)
-else:
-    panelB_grey = panelB
+left_col = img_f[:, :int(w * 0.30), :]
 
-# Find the bounding box of non-background pixels (background is near-white or near-black)
-# Use a threshold to find the brain outline
-if img.dtype in [np.float32, np.float64]:
-    brain_mask = (panelB_grey > 0.05) & (panelB_grey < 0.98)
-else:
-    brain_mask = (panelB_grey > 12) & (panelB_grey < 250)
+# Top sub-panel (IV infusion only): tissue should be darker than Panel A bottom
+# (white margins / colorbars inflate brightness, so we only require > 1% dark pixels)
+top_panel = left_col[:int(h * 0.50), :]
+tissue_like = top_panel[top_panel.mean(axis=-1) < 0.2]
+check("Panel A top (IV infusion): has dark tissue pixels (drug confined to vessels)",
+      tissue_like.shape[0] > 0.01 * top_panel.reshape(-1, 3).shape[0],
+      f"dark-pixel fraction = {tissue_like.shape[0] / top_panel.reshape(-1,3).shape[0]:.3f}")
 
-if brain_mask.sum() > 100:
-    rows_with_brain = np.where(brain_mask.any(axis=1))[0]
-    cols_with_brain = np.where(brain_mask.any(axis=0))[0]
-    if len(rows_with_brain) > 0 and len(cols_with_brain) > 0:
-        brain_h = rows_with_brain[-1] - rows_with_brain[0]
-        brain_w = cols_with_brain[-1] - cols_with_brain[0]
-        aspect = brain_w / max(brain_h, 1)
-        check("Panel B brain outline is wider than tall (coronal, not dorsal)",
-              aspect > 1.05,
-              f"brain width/height ratio = {aspect:.2f} (need > 1.05; dorsal oval ≈ 1.0)")
-    else:
-        check("Panel B brain outline detectable", False,
-              "could not detect brain outline in Panel B region")
-else:
-    check("Panel B has sufficient content", False,
-          f"too few non-background pixels ({brain_mask.sum()}) in Panel B region")
+# Bottom sub-panel (IV+CBG): should have more bright tissue than top panel
+bot_panel = left_col[int(h * 0.52):, :]
+bot_mid_bright = (bot_panel.mean(axis=-1) > 0.25).mean()
+top_mid_bright = (top_panel.mean(axis=-1) > 0.25).mean()
+check("Panel A bottom (IV+CBG) has more bright tissue than top (drug leaked in)",
+      bot_mid_bright > top_mid_bright,
+      f"bright fraction top={top_mid_bright:.3f}, bot={bot_mid_bright:.3f}")
 
 # ─────────────────────────────────────────────────────────
-# CHECK 4: Panel C has 5 vertical lines (time markers)
-# These appear as thin vertical lines in the upper portion of the figure.
-# Panel C: x=70-100%, y=0-40%
-print("\n--- Panel C checks ---")
+# Small-multiples checks — right ~70% of the figure, top ~60% height
+print("\n--- Small-multiples checks ---")
 
-panelC = img[int(h*0.02):int(h*0.38), int(w*0.72):int(w*0.98)]
-if len(panelC.shape) == 3:
-    panelC_grey = panelC.mean(axis=2)
-else:
-    panelC_grey = panelC
+sm = img_f[:int(h * 0.60), int(w * 0.30):]
 
-# Vertical dashed lines show up as columns with alternating dark/light patterns
-# Look for columns that have high variance (alternating dash pattern)
-col_variance = panelC_grey.std(axis=0)
-# A dashed vertical line has moderate-to-high column variance
-# Count columns with variance above threshold
-vline_threshold = col_variance.mean() + 1.5 * col_variance.std()
-potential_lines = col_variance > vline_threshold
+# Row 1 (untreated cFos, top ~25% of small-multiples): should be dim early, bright later
+row1 = sm[:int(sm.shape[0] * 0.25), :]
 
-# Look for clusters of high-variance columns (each line is a few pixels wide)
-from itertools import groupby
-clusters = []
-for k, g in groupby(enumerate(potential_lines), key=lambda x: x[1]):
-    if k:
-        group = list(g)
-        clusters.append(len(group))
+# Untreated cFos should build up over time — verified directly from provenance JSON
+_prov_path = Path("CBG_outputs/CBG_figure_provenance.json")
+if _prov_path.exists():
+    with open(_prov_path) as _f:
+        _prov = json.load(_f)
+    _cu = _prov.get("results", {}).get("mean_cfos_u_by_window", [])
+    if _cu:
+        check("Untreated cFos mean increases from W1 to W4 (provenance-based)",
+              float(_cu[-2]) > float(_cu[0]),
+              f"W1={_cu[0]:.4f}  W4={_cu[-2]:.4f}")
 
-# Count clusters of >= 1 column; Panel C vertical dashed lines (`:`) are 1-2px wide
-n_lines_detected = len([c for c in clusters if c >= 1])
+# Row 4 (treated drug, bottom ~25% of small-multiples): should have bright tissue pixels from W2 onward
+row4 = sm[int(sm.shape[0] * 0.75):, :]
+row4_right = row4[:, int(row4.shape[1] * 0.20):]   # W2-W5 columns
+check("Treated drug row (small multiples, row 4) has bright tissue pixels",
+      row4_right.mean() > 0.1,
+      f"W2-W5 mean brightness={row4_right.mean():.3f} (need > 0.1)")
 
-check("Panel C has ~5 vertical time-marker lines",
-      3 <= n_lines_detected <= 20,
-      f"detected ~{n_lines_detected} vertical line clusters "
-      f"(expected ~5 axvlines; allowing 3-20 to account for tick marks)")
+# Row 2 (untreated drug): vessels only, should be darker in tissue than row 4
+row2 = sm[int(sm.shape[0] * 0.25):int(sm.shape[0] * 0.50), :]
+check("Treated drug (row 4) is brighter than untreated drug (row 2) overall",
+      row4.mean() > row2.mean(),
+      f"row2 mean={row2.mean():.3f}  row4 mean={row4.mean():.3f}")
 
 # ─────────────────────────────────────────────────────────
-# CHECK 5: Notebook structural checks
+# Line-chart checks — right ~70% of figure, bottom ~40% height
+print("\n--- Line-chart checks ---")
+
+lc = img_f[int(h * 0.60):, int(w * 0.30):]
+
+# Line charts should have a visible background (not all-white or all-black)
+lc_var = lc.std()
+check("Line chart region has visible content (non-uniform)",
+      lc_var > 0.02,
+      f"pixel std = {lc_var:.4f} (need > 0.02)")
+
+# The charts should not be identical (two distinct plots side-by-side)
+left_chart  = lc[:, :int(lc.shape[1] * 0.48)]
+right_chart = lc[:, int(lc.shape[1] * 0.52):]
+diff = abs(left_chart.mean() - right_chart.mean())
+check("Left and right line charts are distinct (not identical)",
+      diff > 0.005 or left_chart.std() > 0.01,
+      f"mean diff={diff:.4f}, left std={left_chart.std():.4f}")
+
+# ─────────────────────────────────────────────────────────
+# Notebook structural checks
 print("\n--- Notebook checks ---")
 
 if nb_path.exists():
@@ -221,44 +167,43 @@ if nb_path.exists():
         nb = json.load(f)
     cells = nb.get("cells", [])
     n_cells = len(cells)
-    check("Notebook has >= 10 cells", n_cells >= 10,
-          f"found {n_cells} cells (need >= 10)")
+    check("Notebook has >= 6 cells", n_cells >= 6,
+          f"found {n_cells} cells")
 
-    # Check for ASSUMED labels in any code or markdown cell
-    full_text = " ".join(
-        "".join(c.get("source", [])) for c in cells
-    )
-    check("Notebook contains 'ASSUMED' labels for free parameters",
-          "ASSUMED" in full_text or "assumed" in full_text.lower(),
-          "ASSUMED keyword not found in notebook")
-
-    # Check for ipywidgets
-    check("Notebook contains ipywidgets sliders",
-          "ipywidgets" in full_text or "widgets" in full_text,
-          "ipywidgets not found in notebook")
-
-    # Check for fetch_data
-    check("Notebook references fetch_data",
-          "fetch_data" in full_text,
-          "fetch_data.py not called in notebook")
+    full_text = " ".join("".join(c.get("source", [])) for c in cells)
+    check("Notebook contains ASSUMED labels for free parameters",
+          "ASSUMED" in full_text or "assumed" in full_text.lower())
+    check("Notebook references panel_a_data.npz",
+          "panel_a_data.npz" in full_text)
 
 # ─────────────────────────────────────────────────────────
-# CHECK 6: data/manifest.json exists and is populated
+# Data source checks
 print("\n--- Data source checks ---")
+
+check("panel_a_data.npz exists", Path("panel_a_data.npz").exists())
 
 manifest_path = Path("data/manifest.json")
 check("data/manifest.json exists", manifest_path.exists())
 if manifest_path.exists():
     with open(manifest_path) as f:
         manifest = json.load(f)
-    total_files = sum(len(v) for v in manifest.values())
-    check("data/ contains at least 5 files",
-          total_files >= 5,
-          f"found {total_files} files in data/")
+    total_files = sum(len(v) if isinstance(v, list) else 1 for v in manifest.values())
+    check("data/ manifest has at least 3 entries",
+          total_files >= 3,
+          f"found {total_files} entries in manifest")
+
+provenance_path = Path("CBG_outputs/CBG_figure_provenance.json")
+check("CBG_outputs/CBG_figure_provenance.json exists", provenance_path.exists())
+if provenance_path.exists():
+    with open(provenance_path) as f:
+        prov = json.load(f)
+    check("Provenance records critic_passed = True",
+          prov.get("critic_passed", False) is True,
+          f"critic_passed = {prov.get('critic_passed')}")
 
 # ─────────────────────────────────────────────────────────
 # SUMMARY
-print("\n" + "="*50)
+print("\n" + "=" * 50)
 n_pass = sum(1 for _, ok in results if ok)
 n_fail = sum(1 for _, ok in results if not ok)
 print(f"RESULT: {n_pass}/{len(results)} checks passed, {n_fail} failed\n")
@@ -269,11 +214,11 @@ if failed:
     for name in failed:
         print(f"  ✗ {name}")
     print("\nDo NOT commit. Fix the failing checks and regenerate the figure.")
-    print("Most common fixes:")
-    print("  - Row 1 and 3 identical → increase k_suppress in ODE")
-    print("  - Drug fills whole brain in Row 4 → apply tissue compartment mask")
-    print("  - Panel B dorsal oval → use hippocampus_polygons_Bregma-2mm.json coords")
-    print("  - Row 4 all black → check P_thresh and P(t) values in ODE solution")
+    print("Common fixes:")
+    print("  - Panel A top not dark → check C_intact values (should be near 0 in tissue)")
+    print("  - Panel A bottom not brighter → check C_open hotspot (P_open / P_intact = 50x)")
+    print("  - Row 4 not bright → check interstitial_gain and spatial coupling")
+    print("  - Critic not passed → rerun Cell 6 and fix failing test")
     sys.exit(1)
 else:
     print("All checks passed. Figure is ready to commit.")

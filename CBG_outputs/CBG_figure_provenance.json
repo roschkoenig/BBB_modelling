@@ -1,0 +1,70 @@
+{
+  "generated": "2026-05-09T09:52:27.750389",
+  "source_data": "panel_a_data.npz (MiniVess EBRAINS, Poon et al. 2023)",
+  "outputs": {
+    "pdf": "CBG_outputs/CBG_figure.pdf",
+    "png": "CBG_outputs/CBG_figure.png"
+  },
+  "parameters": {
+    "D_tissue_cm2_min": 0.0003,
+    "P_intact_cm_min": 0.0001,
+    "P_open_cm_min": 0.005,
+    "k_e_per_min": 0.05,
+    "EC50": 0.22,
+    "hill_n": 2.4,
+    "treat_on_min": 16.0,
+    "sigma0_px": 2.0,
+    "spread_rate_px": 2.5,
+    "opening_gain": 1.1,
+    "source_gain": 3.8,
+    "interstitial_gain": 12.0,
+    "open_rise": 0.65,
+    "open_decay": 0.15,
+    "supp_amp_gain": 0.1
+  },
+  "assumed_parameters": [
+    "EC50",
+    "opening_gain",
+    "source_gain",
+    "interstitial_gain",
+    "open_rise",
+    "open_decay",
+    "supp_amp_gain"
+  ],
+  "results": {
+    "peak_untreated_cfos": 6.9658663041587445,
+    "peak_treated_cfos": 2.851729219934002,
+    "mean_cfos_u_by_window": [
+      0.009119789234751742,
+      0.7409838320374538,
+      1.9745585420174485,
+      3.360822021792736,
+      3.5423790287595907
+    ],
+    "mean_cfos_t_by_window": [
+      0.009119789234751742,
+      0.6071608609513549,
+      1.159544440633797,
+      1.4721580511972467,
+      1.0943875043589306
+    ],
+    "mean_drug_u_by_window": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "mean_drug_t_by_window": [
+      0.0,
+      0.3325532436526554,
+      0.5898015797839705,
+      0.6611662490891014,
+      0.67959406995134
+    ],
+    "vessel_area_fraction": 0.24252700805664062,
+    "peak_tissue_drug_intact": 0.07999980424357453,
+    "peak_tissue_drug_open": 0.6491261863934281
+  },
+  "critic_passed": true
+}
